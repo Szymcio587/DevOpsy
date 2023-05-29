@@ -1,0 +1,6 @@
+#!/bin/bash
+FILE=$1
+MESSAGE=$(cat $FILE)
+TICKET="ST407763"
+
+echo "$TICKET $MESSAGE" > $FILE

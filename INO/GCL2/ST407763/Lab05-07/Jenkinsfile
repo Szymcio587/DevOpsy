@@ -1,0 +1,97 @@
+pipeline {
+    agent any
+    
+    environment{
+        DOCKERHUB_CREDENTIALS = credentials('SuperSzymcio')
+    }
+    
+    parameters {
+        string(
+            name: 'ProjectVersion',
+            defaultValue: "1.0.0",
+            description: "Provide version number:"
+            )
+    }
+
+    stages {
+        stage('Prepare') {
+            steps {
+                echo 'Prepare'
+                sh "rm -rf MDO2023_INO"
+                sh "git clone https://github.com/InzynieriaOprogramowaniaAGH/MDO2023_INO"
+                dir('MDO2023_INO'){
+                    sh "git checkout ST407763"
+                }
+                
+                sh 'touch build_logs.log'
+                sh 'touch test_logs.log'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                echo 'Build'
+                dir('MDO2023_INO'){
+                    sh 'docker build -t LastCalcImg . -f ./INO/GCL2/ST407763/Lab03/build/Dockerfile'
+                    sh 'docker run -d --name LastCalc LastCalcImg'
+                    sh 'docker logs LastCalc >> BuildLogs.txt'
+                    sh 'cat BuildLogs.txt'
+                    archiveArtifacts 'BuildLogs.txt'
+                }
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                echo 'Test'
+                dir('MDO2023_INO'){
+                    sh 'docker build -t LastCalcTest -f ./INO/GCL2/ST407763/Lab03/test/Dockerfile'
+                    sh 'docker run --name LastCalcTest LastCalcTestImg'
+                    sh 'docker logs LastCalcTest >> TestLogs.txt'
+                    sh 'cat TestLogs.txt'
+                    archiveArtifacts 'TestLogs.txt'
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                echo 'Deploy'
+                dir('MDO2023_INO'){
+                    sh 'docker rm LastCalc'
+                    sh 'docker rm LastCalcTest'
+                    archiveArtifacts artifacts: "BuildLogs.log"
+                    archiveArtifacts artifacts: "TestLogs.log"
+                    sh 'docker logs LastCalcTest >> TestLogs.txt'
+                    sh 'cat TestLogs.txt'
+                    archiveArtifacts 'TestLogs.txt'
+                }
+            }
+        }
+        
+        stage('Publish') {
+            steps {
+                echo 'Publish'
+                script {
+                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+
+                    sh "docker tag LastCalcTest SuperSzymcio/LastCalc:${params.VERSION}"
+                    sh "docker push SuperSzymcio/LastCalc:${params.VERSION}"
+                    sh 'docker rm LastCalcTest'
+                    
+                    sh 'cd ../'
+                    sh "tar -czvf LastCalc${params.VERSION}.tar.gz ${params.VERSION}/"
+                    archiveArtifacts artifacts: "LastCalc${params.VERSION}.tar.gz"
+                }
+            }
+        }
+        
+    }
+    
+    post {
+        always {
+            sh 'docker logout'
+        }
+    }	
+}
+
