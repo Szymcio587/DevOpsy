@@ -1,0 +1,10 @@
+version: '3'
+services:
+  build:
+    build:
+      context: ../Lab03/build
+      dockerfile: Dockerfile
+  test:
+    build:
+      context: ../Lab03/test
+      dockerfile: Dockerfile
