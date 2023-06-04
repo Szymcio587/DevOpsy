@@ -1,3 +1,3 @@
 FROM squirelly
-WORKDIR squirrelly
+WORKDIR squirelly
 RUN npm run test
